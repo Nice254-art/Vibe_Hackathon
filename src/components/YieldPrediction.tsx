@@ -175,8 +175,8 @@ const YieldPrediction = () => {
                 <p className="text-xs text-gray-500 leading-tight">{index.description}</p>
                 <div className="w-full bg-gray-200 rounded-full h-1.5">
                   <div 
-                    className={`${index.color} h-1.5 rounded-full transition-all duration-500`}
-                    style={{ width: `${Math.min(parseFloat(index.value) * 100, 100)}%` }}
+                    className={\`${index.color} h-1.5 rounded-full transition-all duration-500`}
+                    style={{ width: \`${Math.min(parseFloat(index.value) * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>
