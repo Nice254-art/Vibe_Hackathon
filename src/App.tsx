@@ -1,90 +1,74 @@
-import React, { useState } from 'react';
-import { Satellite, Cloud, BarChart3, TrendingUp, MapPin, Calendar, Leaf, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './components/LandingPage';
+import AuthPage from './components/AuthPage';
 import Dashboard from './components/Dashboard';
+import FieldManagement from './components/FieldManagement';
 import SatelliteDataView from './components/SatelliteDataView';
 import YieldPrediction from './components/YieldPrediction';
 import CropHealth from './components/CropHealth';
+import WeatherMonitoring from './components/WeatherMonitoring';
+import Analytics from './components/Analytics';
+import Alerts from './components/Alerts';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
-function App() {
-  const [activeView, setActiveView] = useState('dashboard');
+const AppContent = () => {
+  const { user, loading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigation = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'satellite', label: 'Satellite Data', icon: Satellite },
-    { id: 'prediction', label: 'Yield Prediction', icon: TrendingUp },
-    { id: 'health', label: 'Crop Health', icon: Leaf },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading CropSight...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const renderView = () => {
-    switch (activeView) {
-      case 'satellite':
-        return <SatelliteDataView />;
-      case 'prediction':
-        return <YieldPrediction />;
-      case 'health':
-        return <CropHealth />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-md border-b border-green-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-r from-green-600 to-green-700 p-2 rounded-lg">
-                <Activity className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">AgriVision</h1>
-                <p className="text-xs text-gray-500">Crop Yield Prediction Platform</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <Calendar className="h-4 w-4" />
-              <span>Season 2024-25</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex">
-        {/* Sidebar */}
-        <nav className="w-64 bg-white shadow-lg min-h-screen border-r border-green-100">
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-6">Navigation</h2>
-            <ul className="space-y-2">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <li key={item.id}>
-                    <button
-                      onClick={() => setActiveView(item.id)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-                        activeView === item.id
-                          ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg transform scale-105'
-                          : 'text-gray-700 hover:bg-green-50 hover:text-green-700'
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </nav>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          {renderView()}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <main className="flex-1 lg:ml-64 p-4 lg:p-8">
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/fields" element={<FieldManagement />} />
+            <Route path="/satellite" element={<SatelliteDataView />} />
+            <Route path="/prediction" element={<YieldPrediction />} />
+            <Route path="/health" element={<CropHealth />} />
+            <Route path="/weather" element={<WeatherMonitoring />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </main>
       </div>
     </div>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </AuthProvider>
   );
 }
 
