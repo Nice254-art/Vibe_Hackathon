@@ -1,14 +1,19 @@
 import React from 'react';
-import { TrendingUp, MapPin, Cloud, Satellite, BarChart3, AlertTriangle, Users, Calendar } from 'lucide-react';
+import { TrendingUp, MapPin, Cloud, Satellite, BarChart3, AlertTriangle, Calendar } from 'lucide-react';
+import { useFields } from '../hooks/useFields';
+import { useAlerts } from '../hooks/useAlerts';
 import WorkflowDiagram from './WorkflowDiagram';
 import MetricsCards from './MetricsCards';
 
 const Dashboard = () => {
+  const { fields, loading: fieldsLoading } = useFields();
+  const { alerts, loading: alertsLoading } = useAlerts();
+
   const recentActivity = [
     {
       type: 'prediction',
       title: 'Yield Forecast Updated',
-      description: 'North Field prediction increased to 4.8 t/ha',
+      description: 'AI model processed new satellite data',
       time: '2 hours ago',
       icon: TrendingUp,
       color: 'text-green-600 bg-green-100'
@@ -23,8 +28,8 @@ const Dashboard = () => {
     },
     {
       type: 'weather',
-      title: 'Weather Alert',
-      description: 'Heavy rainfall expected in 48 hours',
+      title: 'Weather Update',
+      description: 'Favorable conditions for next 7 days',
       time: '1 day ago',
       icon: Cloud,
       color: 'text-orange-600 bg-orange-100'
@@ -32,11 +37,33 @@ const Dashboard = () => {
   ];
 
   const quickStats = [
-    { label: 'Active Fields', value: '4', icon: MapPin, color: 'text-green-600' },
-    { label: 'Total Area', value: '20.6 ha', icon: BarChart3, color: 'text-blue-600' },
-    { label: 'Avg Health', value: '85%', icon: TrendingUp, color: 'text-purple-600' },
-    { label: 'Alerts', value: '3', icon: AlertTriangle, color: 'text-orange-600' }
+    { 
+      label: 'Active Fields', 
+      value: fieldsLoading ? '...' : fields.length.toString(), 
+      icon: MapPin, 
+      color: 'text-green-600' 
+    },
+    { 
+      label: 'Total Area', 
+      value: fieldsLoading ? '...' : `${fields.reduce((sum, field) => sum + field.area, 0).toFixed(1)} ha`, 
+      icon: BarChart3, 
+      color: 'text-blue-600' 
+    },
+    { 
+      label: 'Avg Health', 
+      value: fieldsLoading ? '...' : fields.length > 0 ? `${Math.round(fields.reduce((sum, field) => sum + field.health_score, 0) / fields.length)}%` : '0%', 
+      icon: TrendingUp, 
+      color: 'text-purple-600' 
+    },
+    { 
+      label: 'Alerts', 
+      value: alertsLoading ? '...' : alerts.filter(alert => !alert.read).length.toString(), 
+      icon: AlertTriangle, 
+      color: 'text-orange-600' 
+    }
   ];
+
+  const criticalAlerts = alerts.filter(alert => alert.severity === 'critical' && !alert.read).slice(0, 3);
 
   return (
     <div className="space-y-8">
@@ -113,38 +140,55 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Alerts Summary */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
-        <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center space-x-2">
-          <AlertTriangle className="h-5 w-5 text-orange-600" />
-          <span>Active Alerts</span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="font-semibold text-red-800">Critical</span>
-            </div>
-            <p className="text-sm text-red-700">Drought risk detected in South Field</p>
-          </div>
-          
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <span className="font-semibold text-yellow-800">Warning</span>
-            </div>
-            <p className="text-sm text-yellow-700">Heavy rainfall expected this week</p>
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="font-semibold text-blue-800">Info</span>
-            </div>
-            <p className="text-sm text-blue-700">New satellite data available</p>
+      {/* Critical Alerts Summary */}
+      {criticalAlerts.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <span>Critical Alerts</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {criticalAlerts.map((alert) => (
+              <div key={alert.id} className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <span className="font-semibold text-red-800">Critical</span>
+                </div>
+                <h3 className="font-semibold text-red-900 mb-1">{alert.title}</h3>
+                <p className="text-sm text-red-700">{alert.message}</p>
+                <button
+                  onClick={() => markAsRead(alert.id)}
+                  className="mt-3 text-xs text-red-600 hover:text-red-800 font-medium"
+                >
+                  Mark as read
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Welcome Message for New Users */}
+      {fields.length === 0 && (
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl shadow-lg p-8 border border-green-200">
+          <div className="text-center">
+            <div className="bg-green-100 p-4 rounded-full w-fit mx-auto mb-4">
+              <Satellite className="h-12 w-12 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Welcome to CropSight!</h2>
+            <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+              Get started by adding your first field to begin monitoring crop health, 
+              receiving yield predictions, and accessing weather insights.
+            </p>
+            <button
+              onClick={() => window.location.href = '/fields'}
+              className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transform transition-all duration-200 hover:-translate-y-1"
+            >
+              Add Your First Field
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

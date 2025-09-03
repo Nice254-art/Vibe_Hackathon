@@ -1,81 +1,50 @@
 import React, { useState } from 'react';
-import { Plus, MapPin, Edit, Trash2, Eye, Calendar, Ruler } from 'lucide-react';
-
-interface Field {
-  id: string;
-  name: string;
-  location: string;
-  area: number;
-  cropType: string;
-  plantingDate: string;
-  healthScore: number;
-  predictedYield: number;
-  status: 'healthy' | 'warning' | 'critical';
-}
+import { Plus, MapPin, Edit, Trash2, Eye, Calendar, Ruler, Leaf, AlertTriangle } from 'lucide-react';
+import { useFields } from '../hooks/useFields';
+import { useAuth } from '../contexts/AuthContext';
 
 const FieldManagement = () => {
-  const [fields, setFields] = useState<Field[]>([
-    {
-      id: '1',
-      name: 'North Field',
-      location: 'Nakuru County, Kenya',
-      area: 5.2,
-      cropType: 'Maize',
-      plantingDate: '2024-03-15',
-      healthScore: 92,
-      predictedYield: 4.8,
-      status: 'healthy'
-    },
-    {
-      id: '2',
-      name: 'South Field',
-      location: 'Nakuru County, Kenya',
-      area: 3.8,
-      cropType: 'Maize',
-      plantingDate: '2024-03-20',
-      healthScore: 76,
-      predictedYield: 3.9,
-      status: 'warning'
-    },
-    {
-      id: '3',
-      name: 'East Field',
-      location: 'Nakuru County, Kenya',
-      area: 7.1,
-      cropType: 'Maize',
-      plantingDate: '2024-03-10',
-      healthScore: 88,
-      predictedYield: 4.5,
-      status: 'healthy'
-    }
-  ]);
-
+  const { user } = useAuth();
+  const { fields, loading, error, addField, updateField, deleteField } = useFields();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
   const [newField, setNewField] = useState({
     name: '',
     location: '',
     area: '',
-    cropType: 'Maize',
-    plantingDate: ''
+    crop_type: 'Maize',
+    planting_date: ''
   });
 
-  const handleAddField = (e: React.FormEvent) => {
+  const handleAddField = async (e: React.FormEvent) => {
     e.preventDefault();
-    const field: Field = {
-      id: Date.now().toString(),
-      name: newField.name,
-      location: newField.location,
-      area: parseFloat(newField.area),
-      cropType: newField.cropType,
-      plantingDate: newField.plantingDate,
-      healthScore: Math.floor(Math.random() * 30) + 70,
-      predictedYield: Math.random() * 2 + 3,
-      status: Math.random() > 0.7 ? 'warning' : 'healthy'
-    };
-    
-    setFields([...fields, field]);
-    setNewField({ name: '', location: '', area: '', cropType: 'Maize', plantingDate: '' });
-    setShowAddForm(false);
+    try {
+      await addField({
+        name: newField.name,
+        location: newField.location,
+        area: parseFloat(newField.area),
+        crop_type: newField.crop_type,
+        planting_date: newField.planting_date,
+        health_score: Math.floor(Math.random() * 30) + 70,
+        predicted_yield: Math.random() * 2 + 3,
+        status: Math.random() > 0.7 ? 'warning' : 'healthy'
+      });
+      
+      setNewField({ name: '', location: '', area: '', crop_type: 'Maize', planting_date: '' });
+      setShowAddForm(false);
+    } catch (err) {
+      console.error('Failed to add field:', err);
+    }
+  };
+
+  const handleDeleteField = async (fieldId: string) => {
+    if (window.confirm('Are you sure you want to delete this field?')) {
+      try {
+        await deleteField(fieldId);
+      } catch (err) {
+        console.error('Failed to delete field:', err);
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -86,6 +55,25 @@ const FieldManagement = () => {
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="h-5 w-5" />
+          <span>Error loading fields: {error}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -146,8 +134,8 @@ const FieldManagement = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Crop Type</label>
                 <select
-                  value={newField.cropType}
-                  onChange={(e) => setNewField({ ...newField, cropType: e.target.value })}
+                  value={newField.crop_type}
+                  onChange={(e) => setNewField({ ...newField, crop_type: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   <option value="Maize">Maize</option>
@@ -160,8 +148,8 @@ const FieldManagement = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Planting Date</label>
                 <input
                   type="date"
-                  value={newField.plantingDate}
-                  onChange={(e) => setNewField({ ...newField, plantingDate: e.target.value })}
+                  value={newField.planting_date}
+                  onChange={(e) => setNewField({ ...newField, planting_date: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   required
                 />
@@ -213,14 +201,16 @@ const FieldManagement = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Crop Type</span>
-                <span className="font-semibold text-gray-900">{field.cropType}</span>
+                <span className="font-semibold text-gray-900">{field.crop_type}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 flex items-center space-x-1">
                   <Calendar className="h-4 w-4" />
                   <span>Planted</span>
                 </span>
-                <span className="font-semibold text-gray-900">{new Date(field.plantingDate).toLocaleDateString()}</span>
+                <span className="font-semibold text-gray-900">
+                  {field.planting_date ? new Date(field.planting_date).toLocaleDateString() : 'Not set'}
+                </span>
               </div>
             </div>
 
@@ -228,22 +218,22 @@ const FieldManagement = () => {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Health Score</span>
-                  <span className="font-semibold text-gray-900">{field.healthScore}%</span>
+                  <span className="font-semibold text-gray-900">{field.health_score}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
                     className={`h-2 rounded-full transition-all duration-500 ${
-                      field.healthScore >= 85 ? 'bg-green-500' : 
-                      field.healthScore >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                      field.health_score >= 85 ? 'bg-green-500' : 
+                      field.health_score >= 70 ? 'bg-yellow-500' : 'bg-red-500'
                     }`}
-                    style={{ width: `${field.healthScore}%` }}
+                    style={{ width: `${field.health_score}%` }}
                   ></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Predicted Yield</span>
-                  <span className="font-semibold text-green-600">{field.predictedYield.toFixed(1)} t/ha</span>
+                  <span className="font-semibold text-green-600">{field.predicted_yield.toFixed(1)} t/ha</span>
                 </div>
               </div>
             </div>
@@ -253,11 +243,17 @@ const FieldManagement = () => {
                 <Eye className="h-4 w-4" />
                 <span>View</span>
               </button>
-              <button className="flex-1 bg-blue-50 text-blue-700 py-2 px-3 rounded-lg font-medium hover:bg-blue-100 transition-colors flex items-center justify-center space-x-1">
+              <button 
+                onClick={() => setEditingField(field.id)}
+                className="flex-1 bg-blue-50 text-blue-700 py-2 px-3 rounded-lg font-medium hover:bg-blue-100 transition-colors flex items-center justify-center space-x-1"
+              >
                 <Edit className="h-4 w-4" />
                 <span>Edit</span>
               </button>
-              <button className="bg-red-50 text-red-700 py-2 px-3 rounded-lg font-medium hover:bg-red-100 transition-colors">
+              <button 
+                onClick={() => handleDeleteField(field.id)}
+                className="bg-red-50 text-red-700 py-2 px-3 rounded-lg font-medium hover:bg-red-100 transition-colors"
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -284,7 +280,9 @@ const FieldManagement = () => {
               <Ruler className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{fields.reduce((sum, field) => sum + field.area, 0).toFixed(1)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {fields.reduce((sum, field) => sum + field.area, 0).toFixed(1)}
+              </p>
               <p className="text-sm text-gray-600">Total Area (ha)</p>
             </div>
           </div>
@@ -295,7 +293,9 @@ const FieldManagement = () => {
               <TrendingUp className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{(fields.reduce((sum, field) => sum + field.predictedYield, 0) / fields.length).toFixed(1)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {fields.length > 0 ? (fields.reduce((sum, field) => sum + field.predicted_yield, 0) / fields.length).toFixed(1) : '0.0'}
+              </p>
               <p className="text-sm text-gray-600">Avg Yield (t/ha)</p>
             </div>
           </div>
@@ -306,12 +306,31 @@ const FieldManagement = () => {
               <Leaf className="h-6 w-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{Math.round(fields.reduce((sum, field) => sum + field.healthScore, 0) / fields.length)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {fields.length > 0 ? Math.round(fields.reduce((sum, field) => sum + field.health_score, 0) / fields.length) : 0}
+              </p>
               <p className="text-sm text-gray-600">Avg Health Score</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Empty State */}
+      {fields.length === 0 && (
+        <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-green-100">
+          <div className="bg-green-100 p-4 rounded-full w-fit mx-auto mb-4">
+            <MapPin className="h-12 w-12 text-green-600" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No fields added yet</h3>
+          <p className="text-gray-600 mb-6">Start by adding your first field to begin monitoring crop health and yield predictions.</p>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200"
+          >
+            Add Your First Field
+          </button>
+        </div>
+      )}
     </div>
   );
 };

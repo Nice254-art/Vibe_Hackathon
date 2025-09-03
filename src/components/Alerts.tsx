@@ -1,79 +1,10 @@
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, Info, Bell, Calendar, MapPin, Filter } from 'lucide-react';
-
-interface Alert {
-  id: string;
-  type: 'weather' | 'health' | 'yield' | 'system';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  title: string;
-  message: string;
-  field?: string;
-  timestamp: string;
-  read: boolean;
-}
+import { useAlerts } from '../hooks/useAlerts';
 
 const Alerts = () => {
+  const { alerts, loading, error, markAsRead, markAllAsRead } = useAlerts();
   const [filter, setFilter] = useState('all');
-  const [alerts, setAlerts] = useState<Alert[]>([
-    {
-      id: '1',
-      type: 'weather',
-      severity: 'high',
-      title: 'Heavy Rainfall Warning',
-      message: 'Heavy rainfall expected in the next 48 hours. Consider drainage preparation for North Field.',
-      field: 'North Field',
-      timestamp: '2024-01-15T10:30:00Z',
-      read: false
-    },
-    {
-      id: '2',
-      type: 'health',
-      severity: 'medium',
-      title: 'Vegetation Stress Detected',
-      message: 'NDVI values below optimal range in South Field. Irrigation may be needed.',
-      field: 'South Field',
-      timestamp: '2024-01-15T08:15:00Z',
-      read: false
-    },
-    {
-      id: '3',
-      type: 'yield',
-      severity: 'low',
-      title: 'Yield Forecast Updated',
-      message: 'Predicted yield for East Field increased to 4.8 t/ha based on recent growth patterns.',
-      field: 'East Field',
-      timestamp: '2024-01-14T16:45:00Z',
-      read: true
-    },
-    {
-      id: '4',
-      type: 'system',
-      severity: 'low',
-      title: 'Satellite Data Updated',
-      message: 'New Sentinel-2 imagery processed for all fields. Updated vegetation indices available.',
-      timestamp: '2024-01-14T12:00:00Z',
-      read: true
-    },
-    {
-      id: '5',
-      type: 'weather',
-      severity: 'critical',
-      title: 'Drought Risk Alert',
-      message: 'Extended dry period forecasted. Immediate irrigation planning recommended for all fields.',
-      timestamp: '2024-01-13T14:20:00Z',
-      read: false
-    }
-  ]);
-
-  const markAsRead = (alertId: string) => {
-    setAlerts(alerts.map(alert => 
-      alert.id === alertId ? { ...alert, read: true } : alert
-    ));
-  };
-
-  const markAllAsRead = () => {
-    setAlerts(alerts.map(alert => ({ ...alert, read: true })));
-  };
 
   const getAlertIcon = (type: string, severity: string) => {
     const iconClass = severity === 'critical' ? 'h-6 w-6' : 'h-5 w-5';
@@ -105,6 +36,25 @@ const Alerts = () => {
   const filteredAlerts = filter === 'all' ? alerts : alerts.filter(alert => alert.type === filter);
   const unreadCount = alerts.filter(alert => !alert.read).length;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="h-5 w-5" />
+          <span>Error loading alerts: {error}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -116,12 +66,14 @@ const Alerts = () => {
           <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
             {unreadCount} unread
           </span>
-          <button
-            onClick={markAllAsRead}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
-          >
-            Mark All Read
-          </button>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors"
+            >
+              Mark All Read
+            </button>
+          )}
         </div>
       </div>
 
@@ -173,12 +125,12 @@ const Alerts = () => {
                       <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-4 w-4" />
-                          <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                          <span>{new Date(alert.created_at).toLocaleString()}</span>
                         </div>
-                        {alert.field && (
+                        {alert.field_id && (
                           <div className="flex items-center space-x-1">
                             <MapPin className="h-4 w-4" />
-                            <span>{alert.field}</span>
+                            <span>Field Alert</span>
                           </div>
                         )}
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -212,7 +164,12 @@ const Alerts = () => {
         <div className="bg-white rounded-xl shadow-lg p-12 text-center border border-green-100">
           <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No alerts found</h3>
-          <p className="text-gray-600">No alerts match your current filter criteria.</p>
+          <p className="text-gray-600">
+            {filter === 'all' 
+              ? 'You have no alerts at this time. We\'ll notify you of any important updates.'
+              : `No ${filter} alerts match your current filter criteria.`
+            }
+          </p>
         </div>
       )}
     </div>
