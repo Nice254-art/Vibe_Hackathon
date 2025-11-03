@@ -53,7 +53,7 @@ CREATE POLICY "System can insert weather data"
   ON weather_data
   FOR INSERT
   TO authenticated
-  USING (true);
+  WITH CHECK (true);
 
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_weather_location ON weather_data(location);

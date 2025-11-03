@@ -34,10 +34,32 @@ CREATE TABLE IF NOT EXISTS alerts (
 -- Enable Row Level Security
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 
--- Policy for users to manage their own alerts
-CREATE POLICY "Users can manage own alerts"
+-- Policy for users to select their own alerts
+CREATE POLICY "Users can select own alerts"
   ON alerts
-  FOR ALL
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Policy for users to insert their own alerts
+CREATE POLICY "Users can insert own alerts"
+  ON alerts
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy for users to update their own alerts
+CREATE POLICY "Users can update own alerts"
+  ON alerts
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy for users to delete their own alerts
+CREATE POLICY "Users can delete own alerts"
+  ON alerts
+  FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
 

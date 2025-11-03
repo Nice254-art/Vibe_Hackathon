@@ -65,10 +65,10 @@ CREATE POLICY "System can insert predictions"
   ON predictions
   FOR INSERT
   TO authenticated
-  USING (
+  WITH CHECK (
     EXISTS (
-      SELECT 1 FROM fields 
-      WHERE fields.id = predictions.field_id 
+      SELECT 1 FROM fields
+      WHERE fields.id = predictions.field_id
       AND fields.user_id = auth.uid()
     )
   );

@@ -41,7 +41,8 @@ CREATE POLICY "Users can update own profile"
   ON users
   FOR UPDATE
   TO authenticated
-  USING (auth.uid() = id);
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
 -- Policy for authenticated users to read other users (for cooperatives/government)
 CREATE POLICY "Users can read other profiles"

@@ -42,10 +42,32 @@ CREATE TABLE IF NOT EXISTS fields (
 -- Enable Row Level Security
 ALTER TABLE fields ENABLE ROW LEVEL SECURITY;
 
--- Policy for users to manage their own fields
-CREATE POLICY "Users can manage own fields"
+-- Policy for users to select their own fields
+CREATE POLICY "Users can select own fields"
   ON fields
-  FOR ALL
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Policy for users to insert their own fields
+CREATE POLICY "Users can insert own fields"
+  ON fields
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy for users to update their own fields
+CREATE POLICY "Users can update own fields"
+  ON fields
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy for users to delete their own fields
+CREATE POLICY "Users can delete own fields"
+  ON fields
+  FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
 
