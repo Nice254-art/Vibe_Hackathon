@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -34,117 +32,41 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          await fetchUserProfile(session.user);
-        }
-      } catch (error) {
-        console.error('Error getting session:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    getSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await fetchUserProfile(session.user);
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
   }, []);
 
-  const fetchUserProfile = async (authUser: SupabaseUser) => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return;
-      }
-
-      if (data) {
-        setUser({
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: data.role,
-          location: data.location
-        });
-      }
-    } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-    }
-  };
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const user: User = {
+      id: Math.random().toString(36).substr(2, 9),
       email,
-      password,
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (data.user) {
-      await fetchUserProfile(data.user);
-    }
+      name: email.split('@')[0],
+      role: 'farmer',
+    };
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
   };
 
   const register = async (email: string, password: string, name: string, role: string) => {
-    const { data, error } = await supabase.auth.signUp({
+    const user: User = {
+      id: Math.random().toString(36).substr(2, 9),
       email,
-      password,
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (data.user) {
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: data.user.id,
-            email: data.user.email,
-            name,
-            role,
-          }
-        ]);
-
-      if (profileError) {
-        throw new Error(profileError.message);
-      }
-
-      await fetchUserProfile(data.user);
-    }
+      name,
+      role: role as 'farmer' | 'cooperative' | 'government' | 'ngo',
+    };
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error signing out:', error);
-    }
     setUser(null);
+    localStorage.removeItem('user');
   };
 
   return (
