@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import type { Alert } from '../lib/supabase';
 
 export const useAlerts = () => {
+  const { user } = useAuth();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAlerts = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -16,6 +20,7 @@ export const useAlerts = () => {
           *,
           field:fields(name)
         `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -31,17 +36,20 @@ export const useAlerts = () => {
   };
 
   const markAsRead = async (alertId: string) => {
+    if (!user) throw new Error('User not authenticated');
+
     try {
       const { error } = await supabase
         .from('alerts')
         .update({ read: true })
-        .eq('id', alertId);
+        .eq('id', alertId)
+        .eq('user_id', user.id);
 
       if (error) {
         throw error;
       }
 
-      setAlerts(prev => prev.map(alert => 
+      setAlerts(prev => prev.map(alert =>
         alert.id === alertId ? { ...alert, read: true } : alert
       ));
     } catch (err) {
@@ -50,11 +58,14 @@ export const useAlerts = () => {
   };
 
   const markAllAsRead = async () => {
+    if (!user) throw new Error('User not authenticated');
+
     try {
       const { error } = await supabase
         .from('alerts')
         .update({ read: true })
-        .eq('read', false);
+        .eq('read', false)
+        .eq('user_id', user.id);
 
       if (error) {
         throw error;
@@ -67,19 +78,23 @@ export const useAlerts = () => {
   };
 
   const createAlert = async (alertData: Omit<Alert, 'id' | 'created_at'>) => {
+    if (!user) throw new Error('User not authenticated');
+
     try {
       const { data, error } = await supabase
         .from('alerts')
-        .insert([alertData])
+        .insert([{ ...alertData, user_id: user.id }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         throw error;
       }
 
-      setAlerts(prev => [data, ...prev]);
-      return data;
+      if (data) {
+        setAlerts(prev => [data, ...prev]);
+        return data;
+      }
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to create alert');
     }
@@ -88,16 +103,17 @@ export const useAlerts = () => {
   useEffect(() => {
     fetchAlerts();
 
-    // Subscribe to real-time updates
+    if (!user) return;
+
     const subscription = supabase
-      .channel('alerts')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'alerts' },
+      .channel(`alerts:${user.id}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'alerts', filter: `user_id=eq.${user.id}` },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             setAlerts(prev => [payload.new as Alert, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            setAlerts(prev => prev.map(alert => 
+            setAlerts(prev => prev.map(alert =>
               alert.id === payload.new.id ? payload.new as Alert : alert
             ));
           } else if (payload.eventType === 'DELETE') {
@@ -110,7 +126,7 @@ export const useAlerts = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [user]);
 
   return {
     alerts,

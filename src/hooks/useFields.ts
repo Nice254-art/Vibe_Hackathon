@@ -1,18 +1,23 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import type { Field } from '../lib/supabase';
 
 export const useFields = () => {
+  const { user } = useAuth();
   const [fields, setFields] = useState<Field[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchFields = async () => {
+    if (!user) return;
+
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('fields')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -28,19 +33,23 @@ export const useFields = () => {
   };
 
   const addField = async (fieldData: Omit<Field, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    if (!user) throw new Error('User not authenticated');
+
     try {
       const { data, error } = await supabase
         .from('fields')
-        .insert([fieldData])
+        .insert([{ ...fieldData, user_id: user.id }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         throw error;
       }
 
-      setFields(prev => [data, ...prev]);
-      return data;
+      if (data) {
+        setFields(prev => [data, ...prev]);
+        return data;
+      }
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to add field');
     }
@@ -85,7 +94,7 @@ export const useFields = () => {
 
   useEffect(() => {
     fetchFields();
-  }, []);
+  }, [user]);
 
   return {
     fields,

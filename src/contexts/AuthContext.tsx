@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -32,41 +34,126 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await fetchUserProfile(session.user);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  const fetchUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return;
+      }
+
+      if (data) {
+        setUser({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          role: data.role,
+          location: data.location
+        });
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  };
 
   const login = async (email: string, password: string) => {
-    const user: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      name: email.split('@')[0],
-      role: 'farmer',
-    };
-    setUser(user);
-    localStorage.setItem('user', JSON.stringify(user));
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.user) {
+        await fetchUserProfile(data.user);
+      }
+    } catch (error) {
+      throw error;
+    }
   };
 
   const register = async (email: string, password: string, name: string, role: string) => {
-    const user: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      name,
-      role: role as 'farmer' | 'cooperative' | 'government' | 'ngo',
-    };
-    setUser(user);
-    localStorage.setItem('user', JSON.stringify(user));
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert([
+            {
+              id: data.user.id,
+              email: data.user.email,
+              name,
+              role,
+            }
+          ]);
+
+        if (profileError) {
+          throw new Error(profileError.message);
+        }
+
+        await fetchUserProfile(data.user);
+      }
+    } catch (error) {
+      throw error;
+    }
   };
 
   const logout = async () => {
-    setUser(null);
-    localStorage.removeItem('user');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw new Error(error.message);
+      }
+      setUser(null);
+    } catch (error) {
+      throw error;
+    }
   };
 
   return (
